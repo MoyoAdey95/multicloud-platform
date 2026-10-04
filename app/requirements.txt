@@ -1,0 +1,5 @@
+fastapi==0.141.1
+uvicorn==0.52.4
+prometheus_client==0.26.0
+opentelemetry-sdk==1.44.0
+opentelemetry-exporter-otlp-proto-http==1.44.0
