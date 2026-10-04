@@ -27,3 +27,13 @@ output "estates_aws_principal" {
   description = "Principal set the AWS task role becomes after the exchange."
   value       = module.estate_federation.aws_principal
 }
+
+output "estates_azure_provider" {
+  description = "Resource name of the Azure provider in the estates pool."
+  value       = module.estate_federation.azure_provider_name
+}
+
+output "estates_azure_principal" {
+  description = "Principal the Azure managed identity becomes after the exchange."
+  value       = module.estate_federation.azure_principal
+}

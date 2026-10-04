@@ -82,6 +82,15 @@ locals {
   aws_task_role_arn = data.terraform_remote_state.aws.outputs.task_role_arn
 }
 
+data "terraform_remote_state" "azure" {
+  backend = "gcs"
+
+  config = {
+    bucket = "moyo-platform-tfstate"
+    prefix = "multicloud-platform/azure"
+  }
+}
+
 module "estate_federation" {
   source = "../../modules/estate-federation"
 
@@ -89,6 +98,9 @@ module "estate_federation" {
   pool_id            = "estates"
   aws_account_id     = split(":", local.aws_task_role_arn)[4]
   aws_task_role_name = element(split("/", local.aws_task_role_arn), length(split("/", local.aws_task_role_arn)) - 1)
+
+  azure_tenant_id          = data.terraform_remote_state.azure.outputs.tenant_id
+  azure_identity_object_id = data.terraform_remote_state.azure.outputs.identity_principal_id
 
   depends_on = [google_project_service.this]
 }

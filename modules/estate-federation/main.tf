@@ -59,3 +59,44 @@ resource "google_project_iam_member" "aws_telemetry" {
   role    = each.value
   member  = local.aws_principal
 }
+
+# Azure is plain OIDC. The values below were read from a real token issued to
+# the app's managed identity for api://AzureADTokenExchange, not taken from
+# documentation. That audience is only accepted for exchanges like this one,
+# so the token is no use against Azure's own APIs.
+#
+# The issuer is the tenant's v2.0 endpoint. The audience in the token is the
+# application ID behind api://AzureADTokenExchange rather than the URI, and
+# the subject is the identity's object ID.
+resource "google_iam_workload_identity_pool_provider" "azure" {
+  project                            = var.project_id
+  workload_identity_pool_id          = google_iam_workload_identity_pool.this.workload_identity_pool_id
+  workload_identity_pool_provider_id = "azure-estate"
+  display_name                       = "Azure estate"
+
+  oidc {
+    issuer_uri        = "https://login.microsoftonline.com/${var.azure_tenant_id}/v2.0"
+    allowed_audiences = [var.azure_token_audience]
+  }
+
+  attribute_mapping = {
+    "google.subject" = "assertion.sub"
+    "attribute.tid"  = "assertion.tid"
+  }
+
+  # Every identity in every Entra tenant can get a token from an issuer of
+  # this shape. Only the app's own identity, in this tenant, is let through.
+  attribute_condition = "assertion.tid == '${var.azure_tenant_id}' && assertion.sub == '${var.azure_identity_object_id}'"
+}
+
+locals {
+  azure_principal = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.this.name}/subject/${var.azure_identity_object_id}"
+}
+
+resource "google_project_iam_member" "azure_telemetry" {
+  for_each = toset(var.telemetry_roles)
+
+  project = var.project_id
+  role    = each.value
+  member  = local.azure_principal
+}
