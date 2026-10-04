@@ -181,4 +181,14 @@ jobs:
           done
           [ "$STATE" = "Running" ] || { echo "Revision never reached Running"; exit 1; }
           FQDN=$(az containerapp show --name ca-platform-api --resource-group $AZURE_RG --query properties.configuration.ingress.fqdn -o tsv)
-          curl -fsS https://$FQDN/ | tee /dev/stderr | grep -q '"cloud":"azure"'
+          # Running only means the revision is provisioned. The app scales to
+          # zero, so the first request may wait for a replica to start. Each
+          # try gets 60 seconds, timed, rather than one long wait that ends in
+          # the ingress's own 240 second 504.
+          for i in 1 2 3 4 5; do
+            if curl -fsS --max-time 60 -w "\n%{http_code} in %{time_total}s\n" https://$FQDN/ | tee body.txt | grep -q '"cloud":"azure"'; then
+              cat body.txt; exit 0
+            fi
+            echo "try $i failed"; sleep 10
+          done
+          exit 1
