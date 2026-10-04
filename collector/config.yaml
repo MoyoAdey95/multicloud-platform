@@ -1,0 +1,70 @@
+# One collector config for all three estates. The only thing that changes
+# between them is the CLOUD environment variable, plus, on AWS and Azure,
+# which credential file GOOGLE_APPLICATION_CREDENTIALS points at.
+#
+# Metrics are scraped from the app next to it and sent to Managed Service for
+# Prometheus. Logs arrive from the app over OTLP and go to Cloud Logging.
+# Both are labelled with the cloud they came from here, at collection time,
+# so every query in the hub can group or filter by it without relabelling.
+
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: platform-api
+          scrape_interval: 30s
+          static_configs:
+            - targets: ["127.0.0.1:8080"]
+
+  otlp:
+    protocols:
+      http:
+        endpoint: 127.0.0.1:4318
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 100
+
+  # Managed Prometheus files every series under a prometheus_target resource
+  # built from these attributes. Outside GCP nothing detects them, so they are
+  # set here. The location is the hub's region, where the data is stored, not
+  # where the estate runs. cluster carries the estate, which keeps the three
+  # estates' series apart even though job and instance are the same in each.
+  resource:
+    attributes:
+      - { key: location, value: europe-west2, action: upsert }
+      - { key: cluster, value: "${env:CLOUD}", action: upsert }
+      - { key: namespace, value: platform, action: upsert }
+      - { key: service.name, value: platform-api, action: upsert }
+
+  # The label every dashboard and alert groups by.
+  attributes/cloud:
+    actions:
+      - { key: cloud, value: "${env:CLOUD}", action: upsert }
+
+  batch:
+    timeout: 10s
+
+exporters:
+  googlemanagedprometheus:
+    project: multicloud-platform-lab
+
+  googlecloud:
+    project: multicloud-platform-lab
+    log:
+      default_log_name: platform-api
+
+service:
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      processors: [memory_limiter, resource, attributes/cloud, batch]
+      exporters: [googlemanagedprometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, attributes/cloud, batch]
+      exporters: [googlecloud]
