@@ -27,3 +27,12 @@ variable "owner" {
   type        = string
   default     = "moyo"
 }
+
+# Empty on the first apply, which created the registry alone. The image was
+# then pushed to that registry, tagged with the commit that added the app,
+# and its digest set here so the second apply could create the service.
+variable "image" {
+  description = "Image the Cloud Run service runs, as registry/path@sha256:digest."
+  type        = string
+  default     = "europe-west2-docker.pkg.dev/multicloud-platform-lab/platform-api/platform-api@sha256:3d2aae67d32b3f5db9cf883835567db7f9f36e298dd0044bdcdc05149792d948"
+}
