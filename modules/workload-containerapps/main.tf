@@ -114,4 +114,10 @@ resource "azurerm_container_app" "this" {
   }
 
   tags = var.tags
+
+  # CI owns the image after the first deploy. Without this every plan would
+  # roll the app back to var.image.
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
 }

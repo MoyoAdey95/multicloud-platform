@@ -101,4 +101,13 @@ resource "aws_ecs_service" "this" {
 
   # ECS will not attach a service to a target group with no listener.
   depends_on = [aws_lb_listener.http]
+
+  # CI registers a new revision per deploy, built from the latest revision
+  # with only the image swapped. Without this every plan would roll the
+  # service back to the revision Terraform registered. The trade-off is that
+  # a task definition change made here reaches the service on the next CI
+  # deploy, or by hand with update-service, not on apply.
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
 }

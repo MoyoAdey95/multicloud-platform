@@ -73,6 +73,18 @@ resource "google_cloud_run_v2_service" "this" {
       }
     }
   }
+
+  # CI owns the image after the first deploy and pushes a new digest per
+  # commit, and gcloud records itself as the client that made the change.
+  # Without this, every plan would roll the service back to var.image.
+  # Terraform still owns everything else about the service.
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image,
+      client,
+      client_version,
+    ]
+  }
 }
 
 # Public, like the AWS and Azure estates, so one load generator can reach

@@ -1,0 +1,184 @@
+# Builds the app image once, pushes that one build to all three registries,
+# then deploys it to each estate by digest and checks that each one is
+# actually serving it.
+#
+# Every sign-in is OIDC. GitHub signs a short-lived token for the run, each
+# cloud checks the issuer and the exact subject, which includes
+# refs/heads/main, and hands back its own short-lived credentials. The
+# repository variables below are identifiers, not secrets.
+#
+# The three deploys are separate jobs, so a failure in one estate does not
+# stop the other two.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths: [app/**]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT: multicloud-platform-lab
+  GCP_REGION: europe-west2
+  GCP_REPO: europe-west2-docker.pkg.dev/multicloud-platform-lab/platform-api/platform-api
+  AWS_REGION: eu-west-2
+  AWS_REPO: 495599741450.dkr.ecr.eu-west-2.amazonaws.com/platform-api
+  ACR_NAME: moyoplatformacr
+  AZURE_REPO: moyoplatformacr.azurecr.io/platform-api
+  AZURE_RG: rg-platform-api
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      digest: ${{ steps.digests.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # The runner is amd64, which is the only architecture all three
+      # estates can run, so no cross-build is needed here.
+      - name: Build once
+        run: docker build -t platform-api:${GITHUB_SHA::7} app
+
+      - name: Push to all three registries
+        run: |
+          TAG=${GITHUB_SHA::7}
+          gcloud auth configure-docker europe-west2-docker.pkg.dev --quiet
+          aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_REPO%%/*}
+          az acr login --name $ACR_NAME
+          for repo in $GCP_REPO $AWS_REPO $AZURE_REPO; do
+            docker tag platform-api:$TAG $repo:$TAG
+            docker push --quiet $repo:$TAG
+          done
+
+      # Read back from each registry rather than trusting the push output.
+      - name: Check the digests match
+        id: digests
+        run: |
+          TAG=${GITHUB_SHA::7}
+          G=$(gcloud artifacts docker images describe $GCP_REPO:$TAG --format='value(image_summary.digest)')
+          A=$(aws ecr describe-images --repository-name platform-api --image-ids imageTag=$TAG --query 'imageDetails[0].imageDigest' --output text)
+          Z=$(az acr repository show --name $ACR_NAME --image platform-api:$TAG --query digest -o tsv)
+          echo "gcp   $G"; echo "aws   $A"; echo "azure $Z"
+          [ "$G" = "$A" ] && [ "$A" = "$Z" ] || { echo "Digests differ"; exit 1; }
+          echo "digest=$G" >> "$GITHUB_OUTPUT"
+
+  deploy-gcp:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+
+      # services update waits for the new revision to become ready and fails
+      # if it does not, so a revision that will not start fails the job.
+      - name: Deploy
+        run: |
+          gcloud run services update platform-api --project $GCP_PROJECT --region $GCP_REGION \
+            --image $GCP_REPO@${{ needs.build.outputs.digest }}
+
+      - name: Verify
+        run: |
+          URL=$(gcloud run services describe platform-api --project $GCP_PROJECT --region $GCP_REGION --format='value(status.url)')
+          IMAGE=$(gcloud run services describe platform-api --project $GCP_PROJECT --region $GCP_REGION --format='value(spec.template.spec.containers[0].image)')
+          echo "serving image $IMAGE"
+          [[ "$IMAGE" == *"${{ needs.build.outputs.digest }}" ]] || { echo "Wrong image"; exit 1; }
+          curl -fsS $URL/ | tee /dev/stderr | grep -q '"cloud":"gcp"'
+
+  deploy-aws:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Takes the latest revision of the family, so anything Terraform has
+      # added to the task definition is kept, and swaps only the image.
+      - name: Register a task definition with the new image
+        id: taskdef
+        run: |
+          aws ecs describe-task-definition --task-definition platform-api --query taskDefinition > current.json
+          jq --arg img "$AWS_REPO@${{ needs.build.outputs.digest }}" '
+            .containerDefinitions |= map(if .name == "api" then .image = $img else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy)' current.json > next.json
+          ARN=$(aws ecs register-task-definition --cli-input-json file://next.json --query taskDefinition.taskDefinitionArn --output text)
+          echo "arn=$ARN" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy
+        run: |
+          aws ecs update-service --cluster platform-api --service platform-api \
+            --task-definition ${{ steps.taskdef.outputs.arn }} > /dev/null
+          aws ecs wait services-stable --cluster platform-api --services platform-api
+
+      # services-stable also succeeds after the circuit breaker rolls back, so
+      # check that the deployment that finished is the one just made.
+      - name: Verify
+        run: |
+          read TD STATE < <(aws ecs describe-services --cluster platform-api --services platform-api \
+            --query 'services[0].deployments[?status==`PRIMARY`].[taskDefinition,rolloutState]' --output text)
+          echo "primary $TD $STATE"
+          [ "$TD" = "${{ steps.taskdef.outputs.arn }}" ] && [ "$STATE" = "COMPLETED" ] || { echo "Not deployed"; exit 1; }
+          curl -fsS http://platform-api-alb-1828214217.eu-west-2.elb.amazonaws.com/ | tee /dev/stderr | grep -q '"cloud":"aws"'
+
+  deploy-azure:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy
+        run: |
+          az containerapp update --name ca-platform-api --resource-group $AZURE_RG \
+            --image $AZURE_REPO@${{ needs.build.outputs.digest }} -o none
+
+      # A green update does not mean the new revision runs. Container Apps
+      # keeps serving the old revision if the new one fails to start, so wait
+      # for the latest revision itself to report Running.
+      - name: Verify
+        run: |
+          REV=$(az containerapp show --name ca-platform-api --resource-group $AZURE_RG --query properties.latestRevisionName -o tsv)
+          for i in $(seq 1 30); do
+            STATE=$(az containerapp revision show --name ca-platform-api --resource-group $AZURE_RG --revision $REV --query properties.runningState -o tsv)
+            echo "$REV $STATE"
+            [ "$STATE" = "Running" ] && break
+            [ "$STATE" = "Failed" ] && exit 1
+            sleep 10
+          done
+          [ "$STATE" = "Running" ] || { echo "Revision never reached Running"; exit 1; }
+          FQDN=$(az containerapp show --name ca-platform-api --resource-group $AZURE_RG --query properties.configuration.ingress.fqdn -o tsv)
+          curl -fsS https://$FQDN/ | tee /dev/stderr | grep -q '"cloud":"azure"'
