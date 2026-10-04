@@ -67,3 +67,28 @@ resource "google_service_account_iam_member" "deploy_act_as_runtime" {
   role               = "roles/iam.serviceAccountUser"
   member             = module.github_oidc_gcp.service_account_member
 }
+
+# The AWS root's state gives the task role, so its name is never typed here.
+data "terraform_remote_state" "aws" {
+  backend = "gcs"
+
+  config = {
+    bucket = "moyo-platform-tfstate"
+    prefix = "multicloud-platform/aws"
+  }
+}
+
+locals {
+  aws_task_role_arn = data.terraform_remote_state.aws.outputs.task_role_arn
+}
+
+module "estate_federation" {
+  source = "../../modules/estate-federation"
+
+  project_id         = var.gcp_project
+  pool_id            = "estates"
+  aws_account_id     = split(":", local.aws_task_role_arn)[4]
+  aws_task_role_name = element(split("/", local.aws_task_role_arn), length(split("/", local.aws_task_role_arn)) - 1)
+
+  depends_on = [google_project_service.this]
+}

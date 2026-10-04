@@ -12,3 +12,18 @@ output "github_pool_name" {
   description = "Resource name of the GitHub workload identity pool."
   value       = module.github_oidc_gcp.pool_name
 }
+
+output "estates_pool_name" {
+  description = "Resource name of the pool the AWS and Azure estates sign in through."
+  value       = module.estate_federation.pool_name
+}
+
+output "estates_aws_provider" {
+  description = "Resource name of the AWS provider in the estates pool."
+  value       = module.estate_federation.aws_provider_name
+}
+
+output "estates_aws_principal" {
+  description = "Principal set the AWS task role becomes after the exchange."
+  value       = module.estate_federation.aws_principal
+}
