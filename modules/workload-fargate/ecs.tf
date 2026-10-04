@@ -1,0 +1,104 @@
+locals {
+  log_group_name = "/ecs/${var.name}"
+}
+
+# A Fargate cluster is only a namespace. Container Insights stays off because
+# its metrics bill per task, and metrics go to the hub instead.
+resource "aws_ecs_cluster" "this" {
+  name = var.name
+
+  setting {
+    name  = "containerInsights"
+    value = "disabled"
+  }
+}
+
+# Created here rather than by the awslogs driver, so it has a retention
+# period and is removed on destroy. Container stdout lands here. Once the
+# collector is running, the app's logs also go to the hub.
+resource "aws_cloudwatch_log_group" "this" {
+  name              = local.log_group_name
+  retention_in_days = 1
+}
+
+# Nothing to run until an image has been pushed, so the task definition and
+# service only exist once an image reference is passed in.
+resource "aws_ecs_task_definition" "this" {
+  count = var.image == "" ? 0 : 1
+
+  family                   = var.name
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  # x86_64, because the one image built for all three estates is amd64.
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "X86_64"
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = "api"
+      image     = var.image
+      essential = true
+
+      environment = [
+        { name = "CLOUD", value = "aws" }
+      ]
+
+      portMappings = [
+        { containerPort = var.app_port, protocol = "tcp" }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.this.name
+          awslogs-region        = local.region
+          awslogs-stream-prefix = "api"
+        }
+      }
+    }
+  ])
+}
+
+# One task, always. Fargate behind a load balancer has no scale to zero, so
+# this estate has a cost floor the other two do not.
+resource "aws_ecs_service" "this" {
+  count = var.image == "" ? 0 : 1
+
+  name             = var.name
+  cluster          = aws_ecs_cluster.this.id
+  task_definition  = aws_ecs_task_definition.this[0].arn
+  desired_count    = 1
+  launch_type      = "FARGATE"
+  platform_version = "LATEST"
+
+  # A public IP so the task can reach ECR and CloudWatch without a NAT
+  # gateway. Inbound is still only from the load balancer.
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.tasks.id]
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.this.arn
+    container_name   = "api"
+    container_port   = var.app_port
+  }
+
+  health_check_grace_period_seconds = 30
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  # ECS will not attach a service to a target group with no listener.
+  depends_on = [aws_lb_listener.http]
+}
