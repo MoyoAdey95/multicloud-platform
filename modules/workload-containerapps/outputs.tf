@@ -22,3 +22,18 @@ output "resource_group" {
   description = "Resource group that holds the whole estate."
   value       = azurerm_resource_group.this.name
 }
+
+output "registry_id" {
+  description = "Resource ID of the container registry."
+  value       = azurerm_container_registry.this.id
+}
+
+output "app_id" {
+  description = "Resource ID of the container app, empty until it exists."
+  value       = one(azurerm_container_app.this[*].id)
+}
+
+output "location" {
+  description = "Region of the estate's resource group."
+  value       = azurerm_resource_group.this.location
+}

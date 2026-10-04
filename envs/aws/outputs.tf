@@ -22,3 +22,8 @@ output "service_name" {
   description = "Name of the ECS service."
   value       = module.workload.service_name
 }
+
+output "github_deploy_role_arn" {
+  description = "Role GitHub Actions assumes to deploy the AWS estate."
+  value       = module.github_oidc_aws.role_arn
+}

@@ -22,3 +22,13 @@ output "resource_group" {
   description = "Resource group that holds the estate."
   value       = module.workload.resource_group
 }
+
+output "github_deploy_client_id" {
+  description = "Client ID of the identity GitHub Actions deploys as."
+  value       = module.github_oidc_azure.client_id
+}
+
+output "tenant_id" {
+  description = "Entra tenant the subscription belongs to."
+  value       = data.azurerm_client_config.current.tenant_id
+}

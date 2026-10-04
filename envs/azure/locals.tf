@@ -9,3 +9,9 @@ locals {
     "managed-by" = "terraform"
   }
 }
+
+# Only runs on main can sign in. Pull requests and other branches carry a
+# different subject and are refused.
+locals {
+  github_subject = "${var.github_sub_prefix}:ref:refs/heads/main"
+}

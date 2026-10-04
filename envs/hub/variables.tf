@@ -27,3 +27,26 @@ variable "owner" {
   type        = string
   default     = "moyo"
 }
+
+variable "github_owner_id" {
+  description = "Numeric ID of the GitHub account that owns this repository."
+  type        = string
+  default     = "212127446"
+}
+
+variable "github_repository_id" {
+  description = "Numeric ID of this repository on GitHub."
+  type        = string
+  default     = "1404214134"
+}
+
+# Read from GitHub with
+# gh api repos/MoyoAdey95/multicloud-platform/actions/oidc/customization/sub
+# rather than typed by hand. The repo uses the immutable form, with the owner
+# and repository IDs next to their names, so a renamed or recreated repo with
+# the same name is not trusted.
+variable "github_sub_prefix" {
+  description = "Start of the OIDC sub claim GitHub issues for this repository."
+  type        = string
+  default     = "repo:MoyoAdey95@212127446/multicloud-platform@1404214134"
+}

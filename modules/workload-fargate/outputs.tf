@@ -22,3 +22,18 @@ output "service_name" {
   description = "Name of the ECS service, empty until it exists."
   value       = one(aws_ecs_service.this[*].name)
 }
+
+output "repository_arn" {
+  description = "ARN of the ECR repository, for scoping push permissions."
+  value       = aws_ecr_repository.this.arn
+}
+
+output "execution_role_arn" {
+  description = "ARN of the task execution role."
+  value       = aws_iam_role.execution.arn
+}
+
+output "service_arn" {
+  description = "ARN of the ECS service, empty until it exists."
+  value       = one(aws_ecs_service.this[*].id)
+}

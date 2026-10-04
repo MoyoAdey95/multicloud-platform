@@ -37,3 +37,14 @@ variable "image" {
   type        = string
   default     = "495599741450.dkr.ecr.eu-west-2.amazonaws.com/platform-api@sha256:3d2aae67d32b3f5db9cf883835567db7f9f36e298dd0044bdcdc05149792d948"
 }
+
+# Read from GitHub with
+# gh api repos/MoyoAdey95/multicloud-platform/actions/oidc/customization/sub
+# rather than typed by hand. The repo uses the immutable form, with the owner
+# and repository IDs next to their names, so a renamed or recreated repo with
+# the same name is not trusted.
+variable "github_sub_prefix" {
+  description = "Start of the OIDC sub claim GitHub issues for this repository."
+  type        = string
+  default     = "repo:MoyoAdey95@212127446/multicloud-platform@1404214134"
+}
