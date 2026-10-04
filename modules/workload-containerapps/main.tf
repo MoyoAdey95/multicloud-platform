@@ -105,10 +105,16 @@ resource "azurerm_container_app" "this" {
         path      = "/health"
       }
 
+      # azurerm's defaults want three successes ten seconds apart, which kept
+      # a started replica out of traffic for about 30 seconds on every cold
+      # start. One success checked every 5 seconds is enough for an app with
+      # no dependencies to warm up.
       readiness_probe {
-        transport = "HTTP"
-        port      = 8080
-        path      = "/health"
+        transport               = "HTTP"
+        port                    = 8080
+        path                    = "/health"
+        interval_seconds        = 5
+        success_count_threshold = 1
       }
     }
   }
