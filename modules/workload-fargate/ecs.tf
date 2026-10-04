@@ -78,6 +78,9 @@ resource "aws_ecs_service" "this" {
   launch_type      = "FARGATE"
   platform_version = "LATEST"
 
+  # Only takes effect for tasks started after it is turned on.
+  enable_execute_command = true
+
   # A public IP so the task can reach ECR and CloudWatch without a NAT
   # gateway. Inbound is still only from the load balancer.
   network_configuration {

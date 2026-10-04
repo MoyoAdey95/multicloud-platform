@@ -78,11 +78,34 @@ resource "aws_iam_role_policy" "execution" {
   policy = data.aws_iam_policy_document.execution.json
 }
 
-# No permissions in AWS, and it will not need any. Its job later is to be
-# the identity the collector exchanges for a short-lived Google token, and
-# the trust for that is set up on the Google side.
+# The identity the collector exchanges for a short-lived Google token. The
+# trust for that is set up on the Google side, so it needs nothing in AWS
+# for it.
 resource "aws_iam_role" "task" {
   name               = "${var.name}-task"
-  description        = "Runtime identity of the task. No AWS permissions."
+  description        = "Runtime identity of the task. ECS Exec only in AWS."
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_trust.json
+}
+
+# ECS Exec opens a Session Manager channel from inside the task, so the task
+# role needs these four actions and nothing else. They cannot be scoped to a
+# resource. Used to get a shell in the running task while proving the token
+# exchange. Listed in the production deltas, where exec would be off.
+data "aws_iam_policy_document" "exec" {
+  statement {
+    sid = "EcsExec"
+    actions = [
+      "ssmmessages:CreateControlChannel",
+      "ssmmessages:CreateDataChannel",
+      "ssmmessages:OpenControlChannel",
+      "ssmmessages:OpenDataChannel",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "task_exec" {
+  name   = "ecs-exec"
+  role   = aws_iam_role.task.id
+  policy = data.aws_iam_policy_document.exec.json
 }
