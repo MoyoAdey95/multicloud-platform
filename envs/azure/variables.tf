@@ -28,3 +28,13 @@ variable "owner" {
   type        = string
   default     = "moyo"
 }
+
+# Empty on the first apply, which created the resource group, registry,
+# identity and environment. The image was then pushed to the registry and
+# its digest set here so the second apply could create the app. The digest
+# is the same one Artifact Registry and ECR report.
+variable "image" {
+  description = "Image the container app runs, as registry/repository@sha256:digest."
+  type        = string
+  default     = "moyoplatformacr.azurecr.io/platform-api@sha256:3d2aae67d32b3f5db9cf883835567db7f9f36e298dd0044bdcdc05149792d948"
+}
