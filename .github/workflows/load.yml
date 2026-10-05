@@ -1,0 +1,52 @@
+# Sends the same traffic to all three estates once an hour, so the cost of
+# the same workload can be compared per request. The three estates run in
+# parallel jobs from the same runner image, with the same number of requests,
+# the same path and the same pacing.
+#
+# Only / is called. /flaky is left out so the hourly load never trips the
+# error alerts, which are tested separately.
+#
+# Each job prints one line with what it sent and what came back, so the
+# number of requests sent per estate per day can be read back from the run
+# logs later. Scheduled runs often start late or are skipped when GitHub is
+# busy, so the counts are taken from what actually ran, not from the cron.
+name: load
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cloud: gcp
+            url: https://platform-api-ipehvkxj2q-nw.a.run.app/
+          - cloud: aws
+            url: http://platform-api-alb-1828214217.eu-west-2.elb.amazonaws.com/
+          - cloud: azure
+            url: https://ca-platform-api.lemonmoss-f1eb5926.uksouth.azurecontainerapps.io/
+    env:
+      REQUESTS: 60
+    steps:
+      - name: Send ${{ env.REQUESTS }} requests to ${{ matrix.cloud }}
+        run: |
+          : > results.txt
+          for i in $(seq 1 $REQUESTS); do
+            curl -s -o /dev/null -m 60 -w "%{http_code} %{time_total}\n" "${{ matrix.url }}" >> results.txt || echo "000 60" >> results.txt
+            sleep 1
+          done
+          FIRST=$(head -1 results.txt | cut -d' ' -f2)
+          sort -k2 -n results.txt | awk -v cloud=${{ matrix.cloud }} -v first=$FIRST -v at="$(date -u +%FT%TZ)" '
+            { n++; t[n]=$2; if ($1 == "200") ok++ }
+            END {
+              printf "load cloud=%s sent=%d ok=%d first_s=%s p50_s=%s p95_s=%s max_s=%s at=%s\n",
+                cloud, n, ok, first, t[int(n * 0.5)], t[int(n * 0.95)], t[n], at
+            }' | tee -a "$GITHUB_STEP_SUMMARY"
