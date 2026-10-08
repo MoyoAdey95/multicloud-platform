@@ -27,3 +27,8 @@ output "github_deploy_role_arn" {
   description = "Role GitHub Actions assumes to deploy the AWS estate."
   value       = module.github_oidc_aws.role_arn
 }
+
+output "task_definition_arn" {
+  description = "Latest task definition revision Terraform registered."
+  value       = module.workload.task_definition_arn
+}

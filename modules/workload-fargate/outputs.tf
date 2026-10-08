@@ -37,3 +37,8 @@ output "service_arn" {
   description = "ARN of the ECS service, empty until it exists."
   value       = one(aws_ecs_service.this[*].id)
 }
+
+output "task_definition_arn" {
+  description = "Latest task definition revision Terraform registered."
+  value       = one(aws_ecs_task_definition.this[*].arn)
+}

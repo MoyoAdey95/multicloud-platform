@@ -21,6 +21,66 @@ resource "aws_cloudwatch_log_group" "this" {
   retention_in_days = 1
 }
 
+# Both sides of a conditional must have the same type in Terraform, and an
+# empty list does not match a list of containers. So the full lists are built
+# here and slice() keeps all of them or none, depending on whether a
+# collector image is set.
+locals {
+  with_collector = var.collector_image != ""
+
+  app_environment = [
+    { name = "CLOUD", value = "aws" },
+    { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://127.0.0.1:4318" },
+  ]
+
+  sidecars = [
+    # The collector, the same image as in the other two estates. It signs in
+    # to Google with the baked-in AWS credential config, which points at the
+    # shim below. Not essential, so the app keeps serving if it fails.
+    {
+      name      = "collector"
+      image     = var.collector_image
+      essential = false
+
+      environment = [
+        { name = "CLOUD", value = "aws" },
+        { name = "GOOGLE_APPLICATION_CREDENTIALS", value = "/etc/platform/aws-credential-config.json" },
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.this.name
+          awslogs-region        = local.region
+          awslogs-stream-prefix = "collector"
+        }
+      }
+    },
+    # Serves the task's ECS credentials in the EC2 metadata format Google's
+    # library expects. Runs from the app image, which already has Python, so
+    # there is no third image to build.
+    {
+      name      = "credential-shim"
+      image     = var.image
+      essential = false
+      command   = ["python", "-c", file("${path.module}/../../collector/credential_shim.py")]
+
+      environment = [
+        { name = "SHIM_MODE", value = "aws" },
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.this.name
+          awslogs-region        = local.region
+          awslogs-stream-prefix = "credential-shim"
+        }
+      }
+    },
+  ]
+}
+
 # Nothing to run until an image has been pushed, so the task definition and
 # service only exist once an image reference is passed in.
 resource "aws_ecs_task_definition" "this" {
@@ -40,15 +100,14 @@ resource "aws_ecs_task_definition" "this" {
     cpu_architecture        = "X86_64"
   }
 
-  container_definitions = jsonencode([
+  container_definitions = jsonencode(concat([
     {
       name      = "api"
       image     = var.image
       essential = true
 
-      environment = [
-        { name = "CLOUD", value = "aws" }
-      ]
+      # With a collector next to it, the app also sends its logs there.
+      environment = slice(local.app_environment, 0, local.with_collector ? 2 : 1)
 
       portMappings = [
         { containerPort = var.app_port, protocol = "tcp" }
@@ -63,7 +122,7 @@ resource "aws_ecs_task_definition" "this" {
         }
       }
     }
-  ])
+  ], slice(local.sidecars, 0, local.with_collector ? 2 : 0)))
 }
 
 # One task, always. Fargate behind a load balancer has no scale to zero, so

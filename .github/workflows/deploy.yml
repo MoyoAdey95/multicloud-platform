@@ -143,12 +143,19 @@ jobs:
           aws ecs wait services-stable --cluster platform-api --services platform-api
 
       # services-stable also succeeds after the circuit breaker rolls back, so
-      # check that the deployment that finished is the one just made.
+      # check that the deployment that finished is the one just made. It can
+      # also return while the rollout still says IN_PROGRESS, as the old task
+      # drains from the load balancer, so the state is polled rather than read
+      # once.
       - name: Verify
         run: |
-          read TD STATE < <(aws ecs describe-services --cluster platform-api --services platform-api \
-            --query 'services[0].deployments[?status==`PRIMARY`].[taskDefinition,rolloutState]' --output text)
-          echo "primary $TD $STATE"
+          for i in $(seq 1 30); do
+            read TD STATE < <(aws ecs describe-services --cluster platform-api --services platform-api \
+              --query 'services[0].deployments[?status==`PRIMARY`].[taskDefinition,rolloutState]' --output text)
+            echo "primary $TD $STATE"
+            [ "$STATE" = "COMPLETED" ] || [ "$STATE" = "FAILED" ] && break
+            sleep 10
+          done
           [ "$TD" = "${{ steps.taskdef.outputs.arn }}" ] && [ "$STATE" = "COMPLETED" ] || { echo "Not deployed"; exit 1; }
           curl -fsS http://platform-api-alb-1828214217.eu-west-2.elb.amazonaws.com/ | tee /dev/stderr | grep -q '"cloud":"aws"'
 

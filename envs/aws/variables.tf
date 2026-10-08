@@ -48,3 +48,11 @@ variable "github_sub_prefix" {
   type        = string
   default     = "repo:MoyoAdey95@212127446/multicloud-platform@1404214134"
 }
+
+# Built by .github/workflows/collector-image.yml from commit 234c251. The
+# digest is the same in all three registries.
+variable "collector_image" {
+  description = "Collector image the task runs next to the app, by digest."
+  type        = string
+  default     = "495599741450.dkr.ecr.eu-west-2.amazonaws.com/platform-api@sha256:ed29faeafee8bd57a3b85492fd8595b6ab38a1d41aee8f78f6ea4df6c2710bc2"
+}

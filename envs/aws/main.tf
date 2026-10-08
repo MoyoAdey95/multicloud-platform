@@ -4,6 +4,8 @@ module "workload" {
   name     = "platform-api"
   vpc_cidr = "10.40.0.0/16"
   image    = var.image
+
+  collector_image = var.collector_image
 }
 
 # What the deploy role may do. Push to the one repository, register task
