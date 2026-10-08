@@ -13,3 +13,9 @@ variable "image" {
   type        = string
   default     = ""
 }
+
+variable "collector_image" {
+  description = "Collector image to run next to the app, by digest. Empty means no collector."
+  type        = string
+  default     = ""
+}

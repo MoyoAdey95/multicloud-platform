@@ -104,3 +104,14 @@ module "estate_federation" {
 
   depends_on = [google_project_service.this]
 }
+
+# The GCP estate's collector runs as the Cloud Run runtime service account, so
+# that account gets the same two write-only roles the AWS and Azure
+# identities have. Granted here in the hub, next to theirs.
+resource "google_project_iam_member" "gcp_telemetry" {
+  for_each = toset(["roles/monitoring.metricWriter", "roles/logging.logWriter"])
+
+  project = var.gcp_project
+  role    = each.value
+  member  = "serviceAccount:${local.gcp_estate.runtime_service_account}"
+}

@@ -12,9 +12,8 @@ resource "google_artifact_registry_repository" "this" {
 }
 
 # The service runs as its own identity rather than the default compute
-# service account, which has Editor on the project. It has no roles yet.
-# The collector added later is what needs permissions, and it gets only
-# metric and log writing.
+# service account, which has Editor on the project. Its only roles are the
+# metric and log writing the collector needs, granted in the hub.
 resource "google_service_account" "runtime" {
   account_id   = "${var.name}-run"
   display_name = "Runtime identity for the ${var.name} Cloud Run service"
@@ -38,7 +37,10 @@ resource "google_cloud_run_v2_service" "this" {
       max_instance_count = 2
     }
 
+    # Named so CI can update this container's image on its own, now that the
+    # service runs two.
     containers {
+      name  = "api"
       image = var.image
 
       ports {
@@ -60,6 +62,16 @@ resource "google_cloud_run_v2_service" "this" {
         value = "gcp"
       }
 
+      # The app sends its logs to the collector next to it. The OTLP exporter
+      # adds /v1/logs to this itself.
+      dynamic "env" {
+        for_each = var.collector_image == "" ? [] : [1]
+        content {
+          name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+          value = "http://127.0.0.1:4318"
+        }
+      }
+
       startup_probe {
         http_get {
           path = "/health"
@@ -69,6 +81,37 @@ resource "google_cloud_run_v2_service" "this" {
       liveness_probe {
         http_get {
           path = "/health"
+        }
+      }
+    }
+
+    # The collector runs next to the app in the same instance. It gets its
+    # Google identity from the metadata server as the runtime service
+    # account, so no credential file is used here.
+    #
+    # With request-based billing the instance only has CPU while a request is
+    # being served, and that includes this container. Scrapes and exports
+    # happen in bursts that follow the traffic rather than every 30 seconds.
+    # Counters are cumulative, so totals still add up. Always-on CPU would
+    # smooth it out, at the price of billing every idle minute an instance
+    # stays up.
+    dynamic "containers" {
+      for_each = var.collector_image == "" ? [] : [var.collector_image]
+      content {
+        name  = "collector"
+        image = containers.value
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "256Mi"
+          }
+          cpu_idle = true
+        }
+
+        env {
+          name  = "CLOUD"
+          value = "gcp"
         }
       }
     }

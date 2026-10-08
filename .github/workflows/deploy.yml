@@ -98,12 +98,13 @@ jobs:
           service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v3
 
-      # services update waits for the new revision to become ready and fails
+      # The service runs the app and a collector, so the update names the app
+      # container. services update waits for the new revision to become ready and fails
       # if it does not, so a revision that will not start fails the job.
       - name: Deploy
         run: |
           gcloud run services update platform-api --project $GCP_PROJECT --region $GCP_REGION \
-            --image $GCP_REPO@${{ needs.build.outputs.digest }}
+            --container api --image $GCP_REPO@${{ needs.build.outputs.digest }}
 
       - name: Verify
         run: |
@@ -164,7 +165,7 @@ jobs:
       - name: Deploy
         run: |
           az containerapp update --name ca-platform-api --resource-group $AZURE_RG \
-            --image $AZURE_REPO@${{ needs.build.outputs.digest }} -o none
+            --container-name api --image $AZURE_REPO@${{ needs.build.outputs.digest }} -o none
 
       # A green update does not mean the new revision runs. Container Apps
       # keeps serving the old revision if the new one fails to start, so wait

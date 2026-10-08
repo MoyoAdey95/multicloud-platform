@@ -18,5 +18,7 @@ module "workload" {
   region = var.gcp_region
   image  = var.image
 
+  collector_image = var.collector_image
+
   depends_on = [google_project_service.this]
 }
