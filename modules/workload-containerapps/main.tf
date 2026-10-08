@@ -99,6 +99,15 @@ resource "azurerm_container_app" "this" {
         value = "azure"
       }
 
+      # With a collector next to it, the app also sends its logs there.
+      dynamic "env" {
+        for_each = var.collector_image == "" ? [] : [1]
+        content {
+          name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+          value = "http://127.0.0.1:4318"
+        }
+      }
+
       liveness_probe {
         transport = "HTTP"
         port      = 8080
@@ -115,6 +124,58 @@ resource "azurerm_container_app" "this" {
         path                    = "/health"
         interval_seconds        = 5
         success_count_threshold = 1
+      }
+    }
+
+    # The collector, the same image as in the other two estates. It signs in
+    # to Google with the baked-in Azure credential config, which points at
+    # the shim below.
+    #
+    # Container Apps only accepts set CPU and memory pairs for the whole
+    # app, so with three containers at 0.25 vCPU and 0.5 Gi each the app is
+    # 0.75 vCPU and 1.5 Gi. That is three times the app alone, billed only
+    # while a replica is running.
+    dynamic "container" {
+      for_each = var.collector_image == "" ? [] : [var.collector_image]
+      content {
+        name   = "collector"
+        image  = container.value
+        cpu    = 0.25
+        memory = "0.5Gi"
+
+        env {
+          name  = "CLOUD"
+          value = "azure"
+        }
+
+        env {
+          name  = "GOOGLE_APPLICATION_CREDENTIALS"
+          value = "/etc/platform/azure-credential-config.json"
+        }
+      }
+    }
+
+    # Adds the per-container identity header Google's library cannot read
+    # from the environment, and hands it the managed identity token. Runs
+    # from the app image, which already has Python.
+    dynamic "container" {
+      for_each = var.collector_image == "" ? [] : [1]
+      content {
+        name    = "credential-shim"
+        image   = var.image
+        cpu     = 0.25
+        memory  = "0.5Gi"
+        command = ["python", "-c", file("${path.module}/../../collector/credential_shim.py")]
+
+        env {
+          name  = "SHIM_MODE"
+          value = "azure"
+        }
+
+        env {
+          name  = "AZURE_CLIENT_ID"
+          value = azurerm_user_assigned_identity.app.client_id
+        }
       }
     }
   }

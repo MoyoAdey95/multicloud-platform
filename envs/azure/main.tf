@@ -5,7 +5,9 @@ module "workload" {
   location      = var.azure_location
   registry_name = "moyoplatformacr"
   image         = var.image
-  tags          = local.common_tags
+
+  collector_image = var.collector_image
+  tags            = local.common_tags
 }
 
 # The deploy identity lives in the estate's resource group, so deleting the

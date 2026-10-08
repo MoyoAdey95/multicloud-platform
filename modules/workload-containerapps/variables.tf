@@ -23,3 +23,9 @@ variable "tags" {
   description = "Tags applied to every resource, since azurerm has no default tags."
   type        = map(string)
 }
+
+variable "collector_image" {
+  description = "Collector image to run next to the app, by digest. Empty means no collector."
+  type        = string
+  default     = ""
+}
