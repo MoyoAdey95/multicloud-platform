@@ -54,5 +54,5 @@ variable "github_sub_prefix" {
 variable "collector_image" {
   description = "Collector image the task runs next to the app, by digest."
   type        = string
-  default     = "495599741450.dkr.ecr.eu-west-2.amazonaws.com/platform-api@sha256:ed29faeafee8bd57a3b85492fd8595b6ab38a1d41aee8f78f6ea4df6c2710bc2"
+  default     = "495599741450.dkr.ecr.eu-west-2.amazonaws.com/platform-api@sha256:6e43a8415b9b8867195309e28b3977b528a99a4cb2be7bfed2ebde8978a8d8d1"
 }

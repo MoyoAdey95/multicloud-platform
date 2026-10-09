@@ -42,5 +42,5 @@ variable "image" {
 variable "collector_image" {
   description = "Collector image the service runs next to the app, by digest."
   type        = string
-  default     = "europe-west2-docker.pkg.dev/multicloud-platform-lab/platform-api/platform-api@sha256:ed29faeafee8bd57a3b85492fd8595b6ab38a1d41aee8f78f6ea4df6c2710bc2"
+  default     = "europe-west2-docker.pkg.dev/multicloud-platform-lab/platform-api/platform-api@sha256:6e43a8415b9b8867195309e28b3977b528a99a4cb2be7bfed2ebde8978a8d8d1"
 }
