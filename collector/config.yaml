@@ -26,6 +26,17 @@ processors:
     check_interval: 5s
     limit_mib: 100
 
+  # The app's counters carry no start time, so without this the exporter takes
+  # the first value it scrapes as zero. Requests a replica served before that
+  # first scrape, usually the one that woke it from zero, never reached the hub.
+  # The Python client publishes the process start time, and this processor
+  # stamps it on every counter, so the hub sees the full count from the start.
+  # It runs before batch, as the processor requires, so each scrape is handled
+  # with its own start time.
+  metric_start_time:
+    strategy: start_time_metric
+    start_time_metric_regex: "^process_start_time(_seconds)?$"
+
   # Managed Prometheus files every series under a prometheus_target resource
   # built from these attributes. Outside GCP nothing detects them, so they are
   # set here. The location is the hub's region, where the data is stored, not
@@ -62,7 +73,7 @@ service:
   pipelines:
     metrics:
       receivers: [prometheus]
-      processors: [memory_limiter, resource, attributes/cloud, batch]
+      processors: [memory_limiter, metric_start_time, resource, attributes/cloud, batch]
       exporters: [googlemanagedprometheus]
     logs:
       receivers: [otlp]
