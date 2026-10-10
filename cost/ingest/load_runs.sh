@@ -24,17 +24,17 @@ for run in $(gh run list --repo "$GITHUB_REPOSITORY" --workflow load.yml --statu
     | grep -oE 'load cloud=[a-z]+ sent=[0-9]+ ok=[0-9]+ .* at=[0-9TZ:-]+' \
     | sed -E 's/.*cloud=([a-z]+) sent=([0-9]+) ok=([0-9]+) .* at=([0-9TZ:-]+)/\1 \2 \3 \4/' \
     | while read -r cloud sent ok at; do
-        printf '{"run_id":%s,"cloud":"%s","sent":%s,"ok":%s,"at":"%s"}\n' "$run" "$cloud" "$sent" "$ok" "$at"
+        printf '{"run_id":%s,"cloud":"%s","sent":%s,"ok":%s,"run_at":"%s"}\n' "$run" "$cloud" "$sent" "$ok" "$at"
       done >> "$out"
 done
 
 bq --project_id="$GCP_PROJECT" --location=EU load \
   --source_format=NEWLINE_DELIMITED_JSON --replace \
-  "${RAW_DATASET}.load_runs" "$out" run_id:INTEGER,cloud:STRING,sent:INTEGER,ok:INTEGER,at:TIMESTAMP
+  "${RAW_DATASET}.load_runs" "$out" run_id:INTEGER,cloud:STRING,sent:INTEGER,ok:INTEGER,run_at:TIMESTAMP
 
 echo "Load requests that succeeded, per day:"
 bq --project_id="$GCP_PROJECT" --location=EU query --use_legacy_sql=false --format=pretty \
-  "SELECT DATE(at) AS day, cloud, COUNT(*) AS runs, SUM(ok) AS ok
+  "SELECT DATE(run_at) AS day, cloud, COUNT(*) AS runs, SUM(ok) AS ok
    FROM \`${GCP_PROJECT}.${RAW_DATASET}.load_runs\`
    GROUP BY 1, 2 ORDER BY 1, 2"
 
