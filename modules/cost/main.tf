@@ -132,3 +132,28 @@ resource "google_bigquery_table" "reconciliation" {
 
   depends_on = [google_bigquery_table.focus_all]
 }
+
+# Cost per estate per day and per thousand requests. The rules for which
+# charge belongs to which estate are written out at the top of the SQL.
+resource "google_bigquery_table" "unit_cost" {
+  count = var.create_views ? 1 : 0
+
+  project             = var.project_id
+  dataset_id          = google_bigquery_dataset.reporting.dataset_id
+  table_id            = "unit_cost"
+  deletion_protection = false
+
+  view {
+    query = templatefile("${path.module}/sql/unit_cost.sql", {
+      dataset      = local.reporting_dataset
+      raw_dataset  = local.raw_dataset
+      start_date   = var.unit_cost_start_date
+      gcp_project  = var.project_id
+      project_tag  = var.platform_project_tag
+      aws_services = join(", ", [for s in var.aws_estate_services : "'${s}'"])
+    })
+    use_legacy_sql = false
+  }
+
+  depends_on = [google_bigquery_table.focus_all]
+}

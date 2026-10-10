@@ -33,3 +33,21 @@ variable "create_views" {
   type        = bool
   default     = true
 }
+
+variable "unit_cost_start_date" {
+  description = "First day the unit cost view covers, the day all three estates were live with load."
+  type        = string
+  default     = "2026-10-05"
+}
+
+variable "platform_project_tag" {
+  description = "Value of the project tag on this platform's resources."
+  type        = string
+  default     = "multicloud-platform"
+}
+
+variable "aws_estate_services" {
+  description = "AWS services whose untagged charges are inferred to belong to the AWS estate."
+  type        = list(string)
+  default     = ["Amazon Elastic Container Service", "Amazon Virtual Private Cloud", "Elastic Load Balancing"]
+}
