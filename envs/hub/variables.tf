@@ -50,3 +50,21 @@ variable "github_sub_prefix" {
   type        = string
   default     = "repo:MoyoAdey95@212127446/multicloud-platform@1404214134"
 }
+
+# Kept out of the repo. Set in envs/hub/terraform.tfvars, which git ignores.
+variable "alert_email" {
+  description = "Address the alert policies notify."
+  type        = string
+}
+
+variable "error_ratio_threshold" {
+  description = "Share of requests returning 5xx, per cloud, above which the error alert fires."
+  type        = number
+  default     = 0.1
+}
+
+variable "latency_threshold_seconds" {
+  description = "p95 server-side latency, per cloud, above which the latency alert fires."
+  type        = number
+  default     = 1
+}
