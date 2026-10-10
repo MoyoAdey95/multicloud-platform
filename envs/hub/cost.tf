@@ -30,3 +30,11 @@ module "cost" {
 
   depends_on = [google_project_service.bigquery]
 }
+
+# The ingest job reads request counts from Managed Prometheus. Viewer reads
+# metrics and dashboards and changes nothing.
+resource "google_project_iam_member" "cost_ingest_monitoring" {
+  project = var.gcp_project
+  role    = "roles/monitoring.viewer"
+  member  = "serviceAccount:${google_service_account.cost_ingest.email}"
+}
