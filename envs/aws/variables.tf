@@ -56,3 +56,15 @@ variable "collector_image" {
   type        = string
   default     = "495599741450.dkr.ecr.eu-west-2.amazonaws.com/platform-api@sha256:6e43a8415b9b8867195309e28b3977b528a99a4cb2be7bfed2ebde8978a8d8d1"
 }
+
+variable "aws_export_bucket" {
+  description = "S3 bucket the AWS Data Exports FOCUS export writes to."
+  type        = string
+  default     = "moyoadey-cost-exports"
+}
+
+variable "aws_export_prefix" {
+  description = "Prefix the export writes its files under."
+  type        = string
+  default     = "cost-exports"
+}

@@ -68,3 +68,22 @@ variable "latency_threshold_seconds" {
   type        = number
   default     = 1
 }
+
+# The billing account's exports live in moyo-cloud-lab and are read from there.
+variable "gcp_focus_table" {
+  description = "GCP FOCUS billing export table, project.dataset.table."
+  type        = string
+  default     = "moyo-cloud-lab.gcp_billing_immutable_01614A_44C4CF_9E48D3_eu.gcp_billing_export_focus_01614A_44C4CF_9E48D3"
+}
+
+variable "gcp_detailed_table" {
+  description = "GCP detailed usage billing export table, project.dataset.table."
+  type        = string
+  default     = "moyo-cloud-lab.billing_export.gcp_billing_export_resource_v1_01614A_44C4CF_9E48D3"
+}
+
+variable "cost_views" {
+  description = "Whether to create the cost views. False only for the first apply, before the first ingest run."
+  type        = bool
+  default     = true
+}

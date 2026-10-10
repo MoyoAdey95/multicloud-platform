@@ -57,3 +57,21 @@ variable "collector_image" {
   type        = string
   default     = "moyoplatformacr.azurecr.io/platform-api@sha256:6e43a8415b9b8867195309e28b3977b528a99a4cb2be7bfed2ebde8978a8d8d1"
 }
+
+variable "azure_export_resource_group" {
+  description = "Resource group of the storage account the Azure cost export writes to."
+  type        = string
+  default     = "rg-cost-exports"
+}
+
+variable "azure_export_storage_account" {
+  description = "Storage account the Azure cost export writes to."
+  type        = string
+  default     = "moyoadeycostexports"
+}
+
+variable "azure_export_container" {
+  description = "Blob container the Azure cost export writes to."
+  type        = string
+  default     = "cost-exports"
+}

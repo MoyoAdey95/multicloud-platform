@@ -42,3 +42,8 @@ output "dashboard_url" {
   description = "Console link to the cross-cloud dashboard."
   value       = "https://console.cloud.google.com/monitoring/dashboards/builder/${element(split("/", google_monitoring_dashboard.platform.id), 3)}?project=${var.gcp_project}"
 }
+
+output "cost_ingest_service_account" {
+  description = "Service account the cost ingest workflow signs in as."
+  value       = google_service_account.cost_ingest.email
+}

@@ -32,3 +32,8 @@ output "tenant_id" {
   description = "Entra tenant the subscription belongs to."
   value       = data.azurerm_client_config.current.tenant_id
 }
+
+output "github_cost_ingest_client_id" {
+  description = "Client ID of the identity the cost ingest workflow signs in as."
+  value       = module.github_cost_ingest_azure.client_id
+}

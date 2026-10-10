@@ -32,3 +32,8 @@ output "task_definition_arn" {
   description = "Latest task definition revision Terraform registered."
   value       = module.workload.task_definition_arn
 }
+
+output "github_cost_ingest_role_arn" {
+  description = "Role the cost ingest workflow assumes to read the AWS export."
+  value       = module.github_cost_ingest_aws.role_arn
+}
