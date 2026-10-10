@@ -140,6 +140,12 @@ resource "aws_ecs_service" "this" {
   # Only takes effect for tasks started after it is turned on.
   enable_execute_command = true
 
+  # Fargate charges are billed against the task, not the service, so without
+  # this the compute cost carries no tags and shows as unallocated. Like the
+  # setting above, it applies to tasks started after it is turned on.
+  propagate_tags          = "SERVICE"
+  enable_ecs_managed_tags = true
+
   # A public IP so the task can reach ECR and CloudWatch without a NAT
   # gateway. Inbound is still only from the load balancer.
   network_configuration {
