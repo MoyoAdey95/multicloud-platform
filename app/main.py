@@ -83,6 +83,18 @@ LATENCY = Histogram(
 # Health checks and scrapes would swamp the real traffic in the request rate.
 UNMEASURED = {"/health", "/metrics"}
 
+# A labelled series only exists once something increments it. Without this, a
+# replica that has been up for hours meets its first /flaky error, the series
+# appears already at 1, and the hub spreads that jump back to the process
+# start time, so rate() and the error alert never see it. Creating the series
+# the app knows about at zero on start means the first real request shows up
+# as an increase. Scanner traffic still creates its own series on first use,
+# and it is left out of the panels and alerts anyway.
+for route in ("/", "/flaky"):
+    LATENCY.labels(route, "GET")
+    for status in ("200", "500"):
+        REQUESTS.labels(route, "GET", status)
+
 
 @app.middleware("http")
 async def measure(request: Request, call_next):
