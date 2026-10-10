@@ -1,0 +1,37 @@
+Cost pipeline checks, 10 Oct 2026.
+
+First ingest run 38048879375, after the cost identities were created:
+AWS 2026-09   452 rows   billed 0.3136
+AWS 2026-10   276 rows   billed 7.9384
+Azure 2026-09 119 rows   billed 0.6243
+Azure 2026-10  54 rows   billed 0.855
+
+cost_reporting.reconciliation, every provider and month, difference 0:
+| AWS          | 2026-09-01 | 0.313619 | 0.313619 | 0 | AWS FOCUS export as loaded                   |
+| AWS          | 2026-10-01 | 7.938436 | 7.938436 | 0 | AWS FOCUS export as loaded                   |
+| Google Cloud | 2026-09-01 | 0.16     | 0.16     | 0 | GCP detailed usage export, cost plus credits |
+| Google Cloud | 2026-10-01 | 0.01598  | 0.01598  | 0 | GCP detailed usage export, cost plus credits |
+| Microsoft    | 2026-09-01 | 0.624261 | 0.624261 | 0 | Azure actual cost export as loaded           |
+| Microsoft    | 2026-10-01 | 0.854983 | 0.854983 | 0 | Azure actual cost export as loaded           |
+
+October to date by provider, project tag, estate tag and service (billed > 0.001):
+| AWS          | multicloud-platform | NULL  | Elastic Load Balancing              | 3.5197 |
+| AWS          | NULL                | NULL  | Amazon Virtual Private Cloud        | 2.1367 |
+| AWS          | NULL                | NULL  | Amazon Elastic Container Service    | 2.0183 |
+| AWS          | NULL                | NULL  | Elastic Load Balancing              | 0.26   |
+| AWS          | multicloud-platform | NULL  | Amazon EC2 Container Registry (ECR) | 0.0031 |
+| Google Cloud | NULL                | NULL  | Cloud Monitoring                    | 0.0155 |
+| Microsoft    | multicloud-platform | azure | Container Registry                  | 0.855  |
+estate is NULL on AWS because it is not an activated cost allocation tag there.
+
+After propagate_tags = SERVICE, the new Fargate task carried owner, managed-by,
+estate, project, env and the aws:ecs: managed tags (describe-tasks --include TAGS).
+
+Requests per estate per day, two sources:
+load_runs (load workflow logs), ok requests
+  05: 60 each   06: 300 each   07: 180 each   08: 360 each   09: 240 each   10: 300 each (so far)
+requests_daily (Managed Prometheus, increase over the day, route != unmatched)
+  06 gcp 228   07 gcp 151   08 aws 196 azure 104 gcp 308   09 aws 397 azure 232 gcp 217
+  No AWS or Azure rows before 8 Oct, when their collectors went live. GCP short of the
+  load count before the start-time fix. AWS above it on 9 Oct, from scanners calling
+  GET / on the public load balancer and manual test requests.
