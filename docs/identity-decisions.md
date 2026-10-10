@@ -10,7 +10,7 @@ Nothing in this repo signs in with a stored key. Every identity is either a plat
 | github-deploy-gcp | GCP service account | GitHub OIDC through the `github` pool, main branch only | Push to one Artifact Registry repo, deploy one Cloud Run service, act as its runtime account |
 | github-deploy-aws | IAM role | GitHub OIDC, trust on the exact main-branch subject | Push to one ECR repo, register task definitions, update one service, pass the two task roles to ECS |
 | id-github-deploy-azure | User-assigned identity | GitHub OIDC through a federated credential | AcrPush on one registry, Container Apps Contributor on one app |
-| platform-api-run | GCP service account | Attached to the Cloud Run service | Nothing yet. Gets metric and log writing with the collector |
+| platform-api-run | GCP service account | Attached to the Cloud Run service | Metric Writer and Log Writer in the hub, for the collector next to the app |
 | platform-api-task | IAM role | Attached to the ECS task | The four ECS Exec actions in AWS. In Google, metric and log writing through the `estates` pool |
 | id-platform-api | User-assigned identity | Attached to the container app | AcrPull on one registry. In Google, metric and log writing through the `estates` pool |
 
