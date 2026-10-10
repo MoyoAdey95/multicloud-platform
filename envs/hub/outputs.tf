@@ -37,3 +37,8 @@ output "estates_azure_principal" {
   description = "Principal the Azure managed identity becomes after the exchange."
   value       = module.estate_federation.azure_principal
 }
+
+output "dashboard_url" {
+  description = "Console link to the cross-cloud dashboard."
+  value       = "https://console.cloud.google.com/monitoring/dashboards/builder/${element(split("/", google_monitoring_dashboard.platform.id), 3)}?project=${var.gcp_project}"
+}

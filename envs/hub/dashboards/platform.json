@@ -1,0 +1,148 @@
+{
+  "displayName": "platform-api across three clouds",
+  "dashboardFilters": [
+    {
+      "filterType": "METRIC_LABEL",
+      "labelKey": "cloud",
+      "templateVariable": "cloud",
+      "valueType": "STRING"
+    }
+  ],
+  "mosaicLayout": {
+    "columns": 48,
+    "tiles": [
+      {
+        "width": 48,
+        "height": 6,
+        "widget": {
+          "title": "About this dashboard",
+          "text": {
+            "format": "MARKDOWN",
+            "content": "The same app runs on Cloud Run (gcp), ECS Fargate (aws) and Container Apps (azure). A collector next to each copy scrapes it and labels everything with `cloud`. Requests to paths the app does not serve, mostly scanners on the public endpoints, are left out of the rate, error and latency panels and shown only in the route breakdown. Traffic comes from the hourly load run, so most panels are flat between runs.",
+            "style": {}
+          }
+        }
+      },
+      {
+        "yPos": 6,
+        "width": 24,
+        "height": 16,
+        "widget": {
+          "title": "Request rate by cloud (req/s)",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum by (cloud) (rate(app_requests_total{${cloud}, route!=\"unmatched\"}[5m]))"
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "req/s",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "yPos": 6,
+        "width": 24,
+        "height": 16,
+        "widget": {
+          "title": "Error ratio by cloud (5xx share of requests)",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "(sum by (cloud) (rate(app_requests_total{${cloud}, route!=\"unmatched\", status=~\"5..\"}[5m])) or sum by (cloud) (rate(app_requests_total{${cloud}, route!=\"unmatched\"}[5m])) * 0) / sum by (cloud) (rate(app_requests_total{${cloud}, route!=\"unmatched\"}[5m]))"
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "ratio",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "yPos": 22,
+        "width": 24,
+        "height": 16,
+        "widget": {
+          "title": "p95 latency by cloud (seconds)",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (cloud, le) (rate(app_request_duration_seconds_bucket{${cloud}, route!=\"unmatched\"}[5m])))"
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "seconds",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "yPos": 22,
+        "width": 24,
+        "height": 16,
+        "widget": {
+          "title": "Requests per hour by cloud, route and status",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "STACKED_BAR",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum by (cloud, route, status) (increase(app_requests_total{${cloud}}[1h]))"
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "requests",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "yPos": 38,
+        "width": 48,
+        "height": 16,
+        "widget": {
+          "title": "App errors from all three clouds",
+          "logsPanel": {
+            "filter": "logName=\"projects/PROJECT_ID/logs/platform-api\"\nseverity>=ERROR",
+            "resourceNames": [
+              "projects/PROJECT_ID"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
