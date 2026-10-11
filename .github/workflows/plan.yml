@@ -20,6 +20,14 @@ permissions:
   id-token: write
   contents: read
 
+# Naming the shell makes GitHub run bash with -o pipefail. Without it, a step
+# like "conftest test | tee" takes tee's exit code, so a policy failure is
+# printed and the job still passes. That is exactly what happened on the
+# first pull request this workflow checked.
+defaults:
+  run:
+    shell: bash
+
 env:
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
@@ -48,6 +56,7 @@ jobs:
         root: [hub, gcp, aws, azure]
     defaults:
       run:
+        shell: bash
         working-directory: envs/${{ matrix.root }}
     env:
       # The hub's alert address is kept out of the repo.
