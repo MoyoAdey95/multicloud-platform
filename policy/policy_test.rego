@@ -114,6 +114,10 @@ test_acr_admin_denied if {
 	count(deny) == 1 with input as plan("azurerm_container_registry", {"tags": good_tags, "admin_enabled": true})
 }
 
+test_acr_admin_off_passes if {
+	count(deny) == 0 with input as plan("azurerm_container_registry", {"tags": good_tags, "admin_enabled": false})
+}
+
 test_mutable_ecr_denied if {
 	count(deny) == 1 with input as plan("aws_ecr_repository", {"tags_all": good_tags, "image_tag_mutability": "MUTABLE"})
 }
@@ -132,4 +136,26 @@ test_azure_reader_on_group_allowed if {
 
 test_azure_reader_on_subscription_denied if {
 	count(deny) == 1 with input as plan("azurerm_role_assignment", {"role_definition_name": "Reader", "scope": "/subscriptions/s"})
+}
+
+# Settings left out of the code are missing from the plan. Each of these must
+# fail, which is the case the first version of the rules let through.
+test_bucket_settings_missing if {
+	count(deny) == 2 with input as plan("google_storage_bucket", {"terraform_labels": good_tags})
+}
+
+test_acr_admin_missing if {
+	count(deny) == 1 with input as plan("azurerm_container_registry", {"tags": good_tags})
+}
+
+test_ecr_mutability_missing if {
+	count(deny) == 1 with input as plan("aws_ecr_repository", {"tags_all": good_tags})
+}
+
+test_artifact_registry_immutability_missing if {
+	count(deny) == 1 with input as plan("google_artifact_registry_repository", {"terraform_labels": good_tags, "format": "DOCKER"})
+}
+
+test_container_app_insecure_missing if {
+	count(deny) == 1 with input as plan("azurerm_container_app", {"tags": good_tags, "ingress": [{"external_enabled": true}]})
 }
