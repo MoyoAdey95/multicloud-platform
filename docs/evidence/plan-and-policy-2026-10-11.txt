@@ -1,0 +1,46 @@
+Plan and policy CI, 11 Oct 2026.
+
+Local, conftest 0.71.1, after commit 31:
+  conftest verify: 22 tests, 22 passed
+  four plans: 76 tests, 75 passed, 1 warning (module.workload.aws_lb_listener.http serves plain HTTP), 0 failures
+
+plan.yml on main, run 38149112495, after the read-only identities were applied:
+  policy-tests, plan (hub), plan (gcp), plan (aws), plan (azure): all success
+
+Pull request 1, a bucket with public access prevention and uniform access left
+out of the code. Never merged.
+
+Run 1: all five checks passed. Two faults, found in turn.
+
+  Fault 1, the rules. A setting left out of the code is missing from the plan,
+  and a Rego comparison against a missing value is never true, so
+  "public_access_prevention != enforced" did not fire. Fixed by reading every
+  value with object.get and a default, so a setting not written down fails.
+  Tests added for the absent case. conftest verify: 32 tests, 32 passed.
+
+Run 2: all five checks still passed. The hub job log showed:
+  shell: /usr/bin/bash -e {0}
+  FAIL - plan.json - main - google_storage_bucket.policy_demo allows per-object ACLs
+  FAIL - plan.json - main - google_storage_bucket.policy_demo does not enforce public access prevention
+  20 tests, 18 passed, 0 warnings, 2 failures, 0 exceptions
+  and the job succeeded.
+
+  Fault 2, the workflow. Without a named shell GitHub runs bash -e with no
+  pipefail, so "conftest test | tee" took tee's exit code. Fixed with
+  defaults.run.shell: bash, which runs bash -e -o pipefail.
+
+Run 3: hub failed as intended, and azure failed too. With pipefail on, the
+azure plan's own error was no longer masked:
+  Error: retrieving secrets for Container App ... 403 ... does not have
+  authorization to perform action 'Microsoft.App/containerApps/listSecrets/action'
+
+  Finding: the azurerm provider calls listSecrets on every read of a Container
+  App, even one with no secrets, and Reader does not include it. Fixed with a
+  custom role holding that one action, assigned on the one app.
+
+Run 4:
+  X  plan (hub)    the demo bucket, two policy failures
+  ok plan (aws)
+  ok plan (azure)
+  ok plan (gcp)
+  ok policy-tests
