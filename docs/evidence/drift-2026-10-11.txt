@@ -1,0 +1,29 @@
+Drift detection, 11 Oct 2026. drift.yml, read-only plan identities, -detailed-exitcode.
+
+Baseline, run 38152650343: drift (hub), (gcp), (aws), (azure) all success. No drift.
+
+Three changes made outside Terraform, one per cloud, with each cloud's CLI:
+  aws    logs put-retention-policy /ecs/platform-api --retention-in-days 3   (code says 1)
+  azure  tag update rg-platform-api, merge drift-test=console               (code has no such tag)
+  hub    gcloud storage buckets update moyo-platform-cost-landing, delete rule age 7   (code says 30)
+Checked from each CLI before the run: 3, console, 7.
+
+Run 38154338259:
+  drift (gcp)    success
+  drift (azure)  failure
+  drift (aws)    failure
+  drift (hub)    failure
+
+What each plan would do to bring the cloud back to the code:
+  azure  module.workload.azurerm_resource_group.this will be updated in-place
+           ~ tags = { - "drift-test" = "console" -> null }
+  aws    module.workload.aws_cloudwatch_log_group.this will be updated in-place
+           ~ retention_in_days = 3 -> 1
+  hub    module.cost.google_storage_bucket.landing will be updated in-place
+           ~ lifecycle_rule, condition age 7 replaced by age 30
+
+Two earlier runs, before the changes had been made, correctly reported no drift.
+
+Not detectable by this setup: labels added to GCP resources outside Terraform.
+The google provider only manages the labels in the code and ignores others,
+so a label added by hand never shows as drift.
