@@ -1,0 +1,87 @@
+# Plans every root against the live clouds each night and fails if anything
+# differs from the code. main is always applied, so any change a plan finds is
+# drift, most often something edited by hand in a console. The images CI
+# deploys are in ignore_changes, so a deploy is never reported as drift.
+#
+# Uses the same read-only identities as plan.yml, trusted by runs on main.
+# GitHub emails a failed scheduled run to the person who last changed the
+# schedule, which is the alert. Scheduled runs here have started hours late
+# or not at all on busy days, so this is a daily safety net, not a monitor.
+name: drift
+
+on:
+  schedule:
+    - cron: "40 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  drift:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        root: [hub, gcp, aws, azure]
+    defaults:
+      run:
+        shell: bash
+        working-directory: envs/${{ matrix.root }}
+    env:
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+      TF_VAR_aws_profile: ""
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ vars.PLAN_AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.5
+          terraform_wrapper: false
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.PLAN_GCP_SERVICE_ACCOUNT }}
+
+      - if: matrix.root == 'aws'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.PLAN_AWS_ROLE_ARN }}
+          aws-region: eu-west-2
+
+      - run: terraform init -no-color
+
+      # -detailed-exitcode returns 0 for no changes, 2 for changes and 1 for
+      # an error. The plan's exit code is kept apart from the summary steps,
+      # so a failed grep can never hide it.
+      - name: Plan against the live cloud
+        run: |
+          set +e
+          terraform plan -no-color -lock=false -detailed-exitcode > plan.txt 2>&1
+          code=$?
+          set -e
+          cat plan.txt
+          {
+            echo "### ${{ matrix.root }}"
+            echo '```'
+            grep -E "^  # |^Plan:|^No changes|^Error" plan.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          case $code in
+            0) echo "No drift." ;;
+            2) echo "::error title=Drift in ${{ matrix.root }}::The live cloud differs from the code."; exit 2 ;;
+            *) echo "::error title=Plan failed in ${{ matrix.root }}::The plan itself failed."; exit 1 ;;
+          esac
