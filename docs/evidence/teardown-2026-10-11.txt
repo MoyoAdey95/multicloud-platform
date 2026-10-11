@@ -1,0 +1,33 @@
+Teardown, 11 Oct 2026.
+
+Before: a final ingest and a snapshot of unit_cost and reconciliation, saved in
+cost-final-before-teardown.txt, because destroying the hub deletes the cost
+datasets. load, ingest, drift, deploy and collector-image workflows disabled.
+
+Destroy plans: hub 52, azure 20, aws 33, gcp 7.
+
+Order, hub first, because the hub's plan reads the estates' state:
+  hub    Destroy complete! Resources: 52 destroyed.
+  azure  Error deleting Container App ca-platform-api: polling after Delete:
+         internal-error: polling support for the Content-Type "" was not implemented
+  azure  (rerun) same error on the Container Apps environment cae-platform-api
+  azure  (rerun) Destroy complete! Resources: 1 destroyed.
+  aws    Destroy complete! Resources: 33 destroyed.
+  gcp    Destroy complete! Resources: 7 destroyed.
+
+The Azure errors were the azurerm provider failing to read the delete
+operation's reply. Azure had already deleted each resource, which the next
+check confirmed, and a rerun dropped it from state and carried on.
+
+State left: hub 0, gcp 0, aws 0, azure 0 resources.
+
+Orphan checks:
+  gcp    Cloud Run services: none. Artifact Registry repositories: none.
+         Buckets: moyo-platform-tfstate only, made by hand at bootstrap.
+         Service accounts: the project's default compute account only, created by Google.
+  aws    /ecs/platform-api log group: none. platform-api network interfaces: none.
+         ECS clusters: none. Load balancers: none.
+  azure  rg-platform-api exists: false.
+
+Kept on purpose, outside this repo: the AWS GitHub OIDC provider and the three
+billing exports, which are account bootstrap shared with other repos.
