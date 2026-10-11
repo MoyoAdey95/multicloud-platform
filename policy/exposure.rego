@@ -1,5 +1,10 @@
 # What is reachable from the internet, and what can be changed after it is
 # published.
+#
+# A setting left out of the code is missing from the plan, not false, and a
+# Rego comparison with a missing value is never true. So every rule here reads
+# the value with object.get and a default, and treats a setting that is not
+# written down as a failure. The safe value has to be set on purpose.
 package main
 
 import rego.v1
@@ -22,26 +27,26 @@ warn contains msg if {
 
 deny contains msg if {
 	some rc in resources_of("google_storage_bucket")
-	rc.change.after.public_access_prevention != "enforced"
+	object.get(rc.change.after, "public_access_prevention", "unset") != "enforced"
 	msg := sprintf("%s does not enforce public access prevention", [rc.address])
 }
 
 deny contains msg if {
 	some rc in resources_of("google_storage_bucket")
-	rc.change.after.uniform_bucket_level_access != true
+	object.get(rc.change.after, "uniform_bucket_level_access", false) != true
 	msg := sprintf("%s allows per-object ACLs", [rc.address])
 }
 
 deny contains msg if {
 	some rc in resources_of("azurerm_container_registry")
-	rc.change.after.admin_enabled == true
+	object.get(rc.change.after, "admin_enabled", true) != false
 	msg := sprintf("%s has the admin user turned on", [rc.address])
 }
 
 deny contains msg if {
 	some rc in resources_of("azurerm_container_app")
 	some ingress in rc.change.after.ingress
-	ingress.allow_insecure_connections == true
+	object.get(ingress, "allow_insecure_connections", true) != false
 	msg := sprintf("%s accepts plain HTTP", [rc.address])
 }
 
@@ -49,13 +54,13 @@ deny contains msg if {
 # image once pushed.
 deny contains msg if {
 	some rc in resources_of("aws_ecr_repository")
-	rc.change.after.image_tag_mutability != "IMMUTABLE"
+	object.get(rc.change.after, "image_tag_mutability", "unset") != "IMMUTABLE"
 	msg := sprintf("%s allows tags to be overwritten", [rc.address])
 }
 
 deny contains msg if {
 	some rc in resources_of("google_artifact_registry_repository")
-	rc.change.after.format == "DOCKER"
-	not rc.change.after.docker_config[0].immutable_tags
+	object.get(rc.change.after, "format", "DOCKER") == "DOCKER"
+	not object.get(rc.change.after, ["docker_config", 0, "immutable_tags"], false)
 	msg := sprintf("%s allows tags to be overwritten", [rc.address])
 }
