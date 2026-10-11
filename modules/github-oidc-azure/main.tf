@@ -19,6 +19,18 @@ resource "azurerm_federated_identity_credential" "github" {
   subject                   = var.github_subject
 }
 
+# One credential holds one subject, so each further subject, such as the
+# pull request subject for a read-only identity, gets its own.
+resource "azurerm_federated_identity_credential" "extra" {
+  for_each = var.extra_subjects
+
+  name                      = each.key
+  user_assigned_identity_id = azurerm_user_assigned_identity.this.id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = "https://token.actions.githubusercontent.com"
+  subject                   = each.value
+}
+
 resource "azurerm_role_assignment" "this" {
   for_each = var.role_assignments
 

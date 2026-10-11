@@ -15,6 +15,10 @@ aws_star_resource_ok := {
 	"ssmmessages:OpenDataChannel",
 }
 
+# Describe and List calls return configuration and never data, so a read-only
+# identity may have them for a whole service. Every other action is named.
+read_only_wildcard(action) if regex.match(`^[a-z0-9-]+:(Describe|List)\*$`, action)
+
 as_set(x) := {x} if is_string(x)
 
 as_set(x) := {v | some v in x} if is_array(x)
@@ -29,6 +33,7 @@ deny contains msg if {
 	[address, s] := pair
 	some action in as_set(s.Action)
 	contains(action, "*")
+	not read_only_wildcard(action)
 	msg := sprintf("%s grants the wildcard action %s", [address, action])
 }
 
@@ -38,6 +43,7 @@ deny contains msg if {
 	"*" in as_set(s.Resource)
 	some action in as_set(s.Action)
 	not action in aws_star_resource_ok
+	not read_only_wildcard(action)
 	msg := sprintf("%s grants %s on every resource", [address, action])
 }
 
@@ -98,11 +104,18 @@ deny contains msg if {
 	msg := sprintf("%s assigns %s", [rc.address, rc.change.after.role_definition_name])
 }
 
-# Role assignments go on the one resource that needs them, never on a whole
-# subscription or resource group.
+# Role assignments go on the one resource that needs them. The exception is
+# Reader on a resource group, which is how the read-only plan identity sees
+# everything one root manages. Nothing is ever assigned on a subscription.
 deny contains msg if {
 	some rc in resources_of("azurerm_role_assignment")
-	scope := rc.change.after.scope
-	regex.match(`^/subscriptions/[^/]+(/resourceGroups/[^/]+)?/?$`, scope)
-	msg := sprintf("%s is scoped to a whole subscription or resource group", [rc.address])
+	regex.match(`^/subscriptions/[^/]+/?$`, rc.change.after.scope)
+	msg := sprintf("%s is scoped to a whole subscription", [rc.address])
+}
+
+deny contains msg if {
+	some rc in resources_of("azurerm_role_assignment")
+	regex.match(`^/subscriptions/[^/]+/resourceGroups/[^/]+/?$`, rc.change.after.scope)
+	rc.change.after.role_definition_name != "Reader"
+	msg := sprintf("%s assigns %s on a whole resource group", [rc.address, rc.change.after.role_definition_name])
 }

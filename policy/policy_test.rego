@@ -117,3 +117,19 @@ test_acr_admin_denied if {
 test_mutable_ecr_denied if {
 	count(deny) == 1 with input as plan("aws_ecr_repository", {"tags_all": good_tags, "image_tag_mutability": "MUTABLE"})
 }
+
+test_aws_read_only_wildcards_allowed if {
+	count(deny) == 0 with input as plan("aws_iam_role_policy", {"policy": policy_doc([{"Effect": "Allow", "Action": ["ec2:Describe*", "ecs:List*"], "Resource": "*"}])})
+}
+
+test_aws_get_wildcard_denied if {
+	count(deny) == 2 with input as plan("aws_iam_role_policy", {"policy": policy_doc([{"Effect": "Allow", "Action": ["s3:Get*"], "Resource": "*"}])})
+}
+
+test_azure_reader_on_group_allowed if {
+	count(deny) == 0 with input as plan("azurerm_role_assignment", {"role_definition_name": "Reader", "scope": "/subscriptions/s/resourceGroups/rg"})
+}
+
+test_azure_reader_on_subscription_denied if {
+	count(deny) == 1 with input as plan("azurerm_role_assignment", {"role_definition_name": "Reader", "scope": "/subscriptions/s"})
+}

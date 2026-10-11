@@ -47,3 +47,8 @@ output "cost_ingest_service_account" {
   description = "Service account the cost ingest workflow signs in as."
   value       = google_service_account.cost_ingest.email
 }
+
+output "plan_service_account" {
+  description = "Service account the plan and drift workflows sign in as."
+  value       = google_service_account.plan.email
+}

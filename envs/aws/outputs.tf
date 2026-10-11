@@ -37,3 +37,8 @@ output "github_cost_ingest_role_arn" {
   description = "Role the cost ingest workflow assumes to read the AWS export."
   value       = module.github_cost_ingest_aws.role_arn
 }
+
+output "github_plan_role_arn" {
+  description = "Role the plan and drift workflows assume."
+  value       = module.github_plan_aws.role_arn
+}

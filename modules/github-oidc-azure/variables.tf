@@ -35,3 +35,9 @@ variable "tags" {
   description = "Tags applied to the identity."
   type        = map(string)
 }
+
+variable "extra_subjects" {
+  description = "Further exact subjects, keyed by credential name, such as the pull request subject for a read-only identity."
+  type        = map(string)
+  default     = {}
+}

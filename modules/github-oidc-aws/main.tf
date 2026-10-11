@@ -9,9 +9,9 @@ data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# Only tokens carrying the exact subject can assume the role. The subject
-# includes the ref, so another branch, a pull request or any other repository
-# is refused.
+# Only tokens carrying one of the exact subjects can assume the role. The
+# main subject includes the ref, so another branch or any other repository is
+# refused. A pull request subject is only added for read-only roles.
 data "aws_iam_policy_document" "trust" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -30,7 +30,7 @@ data "aws_iam_policy_document" "trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = [var.github_subject]
+      values   = concat([var.github_subject], var.extra_subjects)
     }
   }
 }

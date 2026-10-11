@@ -10,8 +10,12 @@ locals {
   }
 }
 
-# Only runs on main can sign in. Pull requests and other branches carry a
-# different subject and are refused.
+# The identities that deploy or write trust only runs on main. Other branches
+# carry a different subject and are refused.
 locals {
   github_subject = "${var.github_sub_prefix}:ref:refs/heads/main"
+
+  # Pull request runs carry this subject. Only the read-only plan identities
+  # trust it.
+  github_pr_subject = "${var.github_sub_prefix}:pull_request"
 }

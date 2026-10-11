@@ -1,0 +1,101 @@
+# Plans all four roots on every pull request and checks each plan against the
+# rules in policy/. A pull request that breaks a rule fails here, before
+# anything is applied.
+#
+# Each cloud has a read-only identity for this, trusted by pull requests and
+# by main. Plans run with -lock=false, because taking the state lock is a
+# write and these identities cannot write. Nothing here can apply.
+name: plan
+
+on:
+  pull_request:
+    paths:
+      - envs/**
+      - modules/**
+      - policy/**
+      - .github/workflows/plan.yml
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  CONFTEST_VERSION: "0.71.1"
+
+jobs:
+  policy-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install conftest
+        run: |
+          curl -sSL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" | tar xz conftest
+          sudo mv conftest /usr/local/bin/
+
+      - name: Test the rules themselves
+        run: conftest verify -p policy
+
+  plan:
+    needs: policy-tests
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        root: [hub, gcp, aws, azure]
+    defaults:
+      run:
+        working-directory: envs/${{ matrix.root }}
+    env:
+      # The hub's alert address is kept out of the repo.
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+      # Locally the AWS root signs in with a named profile. Here the
+      # credentials come from the environment instead.
+      TF_VAR_aws_profile: ""
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ vars.PLAN_AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.5
+          terraform_wrapper: false
+
+      # Every root keeps its state in GCS, so every job signs in to GCP.
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.PLAN_GCP_SERVICE_ACCOUNT }}
+
+      - if: matrix.root == 'aws'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.PLAN_AWS_ROLE_ARN }}
+          aws-region: eu-west-2
+
+      - name: Install conftest
+        working-directory: .
+        run: |
+          curl -sSL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" | tar xz conftest
+          sudo mv conftest /usr/local/bin/
+
+      - run: terraform init -no-color
+
+      - name: Plan
+        run: |
+          terraform plan -no-color -lock=false -out=tfplan | tee plan.txt
+          terraform show -json tfplan > plan.json
+          {
+            echo "### ${{ matrix.root }}"
+            echo '```'
+            grep -E "^  # |^Plan:|^No changes" plan.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the plan against policy
+        run: conftest test -p ../../policy --no-color plan.json | tee -a "$GITHUB_STEP_SUMMARY"

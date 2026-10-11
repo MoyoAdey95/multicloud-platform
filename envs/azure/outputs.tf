@@ -37,3 +37,8 @@ output "github_cost_ingest_client_id" {
   description = "Client ID of the identity the cost ingest workflow signs in as."
   value       = module.github_cost_ingest_azure.client_id
 }
+
+output "github_plan_client_id" {
+  description = "Client ID of the identity the plan and drift workflows sign in as."
+  value       = module.github_plan_azure.client_id
+}
