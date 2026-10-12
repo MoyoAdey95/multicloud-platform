@@ -1,0 +1,12 @@
+4 Oct 2026, deploy.yml first run 37200612205 (workflow_dispatch, commit 37d4373)
+
+build 1m32s green: OIDC to all three clouds first time, CI-built digest sha256:5bf726b860373c75c95bc4b4e6742cbc667fd539c27eacca75336896bf61fea4 matched in all three registries (differs from the local build 3d2aae67 because the runner built from scratch, fresh apt-get upgrade)
+deploy-gcp 39s green, deploy-aws 2m43s green
+deploy-azure 5m6s FAILED at Verify: revision ca-platform-api--0000001 Activating x3 then Running at 12:02:55, then curl got 504 at 12:06:57 (the ingress's 240s timeout). System log for that window had already rolled off by the time it was checked.
+
+Cold start measured afterwards (12:25, after scale to zero), 45.4s total:
+12:25:23 KEDA scaled 0 -> 1 on the request
+12:25:27 image pulled in 2.23s, 54525952 bytes
+12:25:33 container started, readiness probe failed immediately
+~12:26:08 request answered
+About 35s of the 45s is the readiness probe default (3 successes, 10s interval) after the container had started.

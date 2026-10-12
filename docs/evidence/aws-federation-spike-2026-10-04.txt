@@ -1,0 +1,28 @@
+4 Oct 2026, spikes/fargate-google-token.py run inside the Fargate task with ECS Exec (session ecs-execute-command-cea5qnpccgi8xii3biv73iofha)
+
+=== what the task has
+AWS_REGION: set
+AWS_DEFAULT_REGION: set
+AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: set
+AWS_ACCESS_KEY_ID: not set
+
+=== attempt 1: config as gcloud generated it
+failed: TransportError: HTTPConnectionPool(host='169.254.169.254', port=80): Max retries exceeded with url: /latest/meta-data/iam/security-credentials (Caused by NewConnectionError("HTTPConnection(host='169.254.169.254', port=80): Failed to establish a new connection: [Errno 22] Invalid argument"))
+
+=== attempt 2: same config, credentials from the local shim
+token issued, expires 2026-10-04 14:44:13.010323 UTC
+
+=== read: list metric descriptors as the federated identity
+200 ok
+
+=== write: one point to a custom metric
+200 ok
+
+=== write: one log entry
+200 ok
+
+google-auth 2.59.1 (installed in the task at run time). Script downloaded from a secret gist because long pastes into the ECS Exec session were unreliable; gist deleted afterwards.
+
+Read back from the hub with Moyo's own login:
+gcloud logging read federation-check -> 2026-10-04T14:29:19.188724305Z  written from the Fargate task with no key  aws
+metricDescriptors/custom.googleapis.com/platform/federation_check -> GAUGE INT64, label cloud

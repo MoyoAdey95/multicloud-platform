@@ -1,0 +1,10 @@
+4 Oct 2026, after the second apply in envs/aws
+
+ECR digest for tag da4fd9a: sha256:3d2aae67d32b3f5db9cf883835567db7f9f36e298dd0044bdcdc05149792d948 (same as Artifact Registry)
+First apply 24 resources, ALB took 2m13s to create.
+
+service_url = "http://platform-api-alb-1828214217.eu-west-2.elb.amazonaws.com"
+Target health: 10.40.2.203:8080 healthy
+{"service":"platform-api","cloud":"aws"}
+health: 200 in 0.240683s
+Task: x86_64, 256 CPU, 512 MiB, platform 1.4.0, RUNNING, healthStatus UNKNOWN (no container health check in the task definition, the ALB target health check is the one in use)

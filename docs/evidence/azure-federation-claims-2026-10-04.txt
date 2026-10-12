@@ -1,0 +1,20 @@
+4 Oct 2026, spikes/containerapp-google-token.py claims, run inside ca-platform-api revision 0000003 with az containerapp exec
+
+Wake request before exec: 200 in 22.49s (cold start after the readiness probe change, was 45.4s before)
+
+=== what the container has
+IDENTITY_ENDPOINT: set
+IDENTITY_HEADER: set
+MSI_ENDPOINT: set
+
+=== managed identity token claims (resource api://AzureADTokenExchange)
+iss: https://login.microsoftonline.com/f4610659-b157-4957-872b-a25094a4c3a4/v2.0
+aud: fb60f99c-7a34-4190-8149-302f77469936
+sub: e6d5a82c-2281-4833-94c2-8b131c41288f
+oid: e6d5a82c-2281-4833-94c2-8b131c41288f
+tid: f4610659-b157-4957-872b-a25094a4c3a4
+azp: 6d03fe23-a3d2-47d4-afd6-ae0aa625bbbc
+ver: 2.0
+lifetime: 86700 seconds
+
+Notes: aud is the application ID behind api://AzureADTokenExchange, not the URI that was asked for. sub and oid are the identity's object (principal) ID, the same value as the azure root's identity_principal_id output. azp is its client ID. The token lasts about 24 hours.

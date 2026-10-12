@@ -1,0 +1,25 @@
+8 Oct 2026
+
+Managed Prometheus, max_over_time(app_requests_total[6h]) by cloud, cluster, route, status:
+{"cloud":"gcp","cluster":"gcp","route":"/","status":"200"} 45
+Each load run sends 60 requests to /. The highest count the hub saw from Cloud Run over those 6 hours was 45. First reading: request-based CPU means the collector's last scrape of a burst lands before the final requests finish. NOT CONFIRMED: at 17:55 UTC the same query over 30 minutes showed gcp 60 for one run, so the 45 may be scrape timing rather than lost data. Check again with more runs before the docs claim anything.
+
+Earlier "empty" results (4 and 5 Oct) were the instant query's 5 minute look-back, not missing data.
+
+Load workflow runs per UTC day (cron 17 * * * *, all succeeded):
+2026-10-05  1 (manual, 18:04 UTC)
+2026-10-06  5
+2026-10-07  3
+2026-10-08  3 (by 17:07 UTC)
+Expected 24 a day. GitHub dropped most scheduled runs. Every run that did happen hit all three estates with 60 requests each.
+
+First load run, 5 Oct 18:04 UTC:
+aws   sent=60 ok=60 first_s=0.23 p50_s=0.18 p95_s=0.23
+gcp   sent=60 ok=60 first_s=0.15 p50_s=0.12 p95_s=0.24 (warm)
+azure sent=60 ok=60 first_s=28.36 p50_s=0.25 p95_s=0.25 (cold start)
+
+8 Oct 17:55 UTC, after commit 21 (Fargate collector) and a manual load run, max_over_time(app_requests_total[30m]) by cloud, route, status:
+aws  /          200  45   (query ran about 60s after the load finished)
+gcp  /          200  60
+aws  unmatched  404  ...  (internet scanners probing the public ALB; route templating keeps them in one series)
+AWS deploy run 37815876011: Verify failed because services-stable returned while rolloutState was still IN_PROGRESS. ECS showed revision 5 PRIMARY and COMPLETED moments later. Verify now polls the rollout state.

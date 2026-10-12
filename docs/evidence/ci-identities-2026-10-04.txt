@@ -1,0 +1,9 @@
+4 Oct 2026, after commit 10 applies (hub 10, aws 2, azure 4)
+
+github_workload_identity_provider = projects/355394312675/locations/global/workloadIdentityPools/github/providers/github-actions
+github_deploy_service_account = github-deploy-gcp@multicloud-platform-lab.iam.gserviceaccount.com
+Provider: ACTIVE, condition assertion.repository_owner_id == '212127446' && assertion.repository_id == '1404214134'
+SA policy: roles/iam.workloadIdentityUser -> principal://iam.googleapis.com/projects/355394312675/locations/global/workloadIdentityPools/github/subject/repo:MoyoAdey95@212127446/multicloud-platform@1404214134:ref:refs/heads/main
+AWS github-deploy-aws trust: aud sts.amazonaws.com, sub repo:MoyoAdey95@212127446/multicloud-platform@1404214134:ref:refs/heads/main
+Azure id-github-deploy-azure: credential github-main, same subject
+Azure roles: Container Apps Contributor on ca-platform-api, AcrPush on moyoplatformacr. Nothing else.

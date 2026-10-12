@@ -1,0 +1,7 @@
+4 Oct 2026, scripts/publish-image.sh, tag c4226fd
+
+Build fully cached, so it produced the same image as tag da4fd9a.
+gcp    sha256:3d2aae67d32b3f5db9cf883835567db7f9f36e298dd0044bdcdc05149792d948
+aws    sha256:3d2aae67d32b3f5db9cf883835567db7f9f36e298dd0044bdcdc05149792d948
+azure  sha256:3d2aae67d32b3f5db9cf883835567db7f9f36e298dd0044bdcdc05149792d948
+All three registries hold the same image for tag c4226fd.

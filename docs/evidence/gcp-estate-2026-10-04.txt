@@ -1,0 +1,9 @@
+4 Oct 2026, after the second apply in envs/gcp
+
+service_url = "https://platform-api-ipehvkxj2q-nw.a.run.app"
+cold: 200 in 1.199646s
+{"service":"platform-api","cloud":"gcp"}
+warm: 200 in 0.402658s
+SERVICE_ACCOUNT_NAME                                              MIN_SCALE  MAX_SCALE  LATEST_READY_REVISION_NAME
+platform-api-run@multicloud-platform-lab.iam.gserviceaccount.com  0          2          platform-api-00001-ldx
+image: europe-west2-docker.pkg.dev/multicloud-platform-lab/platform-api/platform-api@sha256:3d2aae67d32b3f5db9cf883835567db7f9f36e298dd0044bdcdc05149792d948 (tag da4fd9a)

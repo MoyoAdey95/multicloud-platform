@@ -42,7 +42,7 @@ Some values had to come from a real token rather than from documentation. The Az
 
 Two smaller things. The Azure token lives for about 24 hours, against an hour for the AWS session credentials. A grant made seconds before it is used can fail. The Azure log write returned 403 straight after the apply and 200 fourteen minutes later with nothing changed, while the metric write from the same apply worked at once.
 
-The scripts are in `spikes/` and the outputs will be in `docs/evidence/`.
+The scripts are in `spikes/` and their output is in `docs/evidence/`.
 
 ## What was left out
 
